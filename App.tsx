@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { ProductMention, AnalysisStatus, HistoricalProduct, GlobalFoodTrend } from './types';
-import { analyzeBrandTrends, AnalysisLogic } from './services/geminiService';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ProductMention, AnalysisStatus, HistoricalProduct, GlobalFoodTrend, GroundingSource, AnalysisLogic, DateRangePreset, Region } from './types';
+import { analyzeBrandTrends } from './services/geminiService';
 import { Icons } from './constants';
 import StatsCards from './components/StatsCards';
 import TrendingChart from './components/TrendingChart';
@@ -9,123 +9,232 @@ import ProductTable from './components/ProductTable';
 import HistoricalLeaders from './components/HistoricalLeaders';
 import GlobalTrends from './components/GlobalTrends';
 import ProductDetailModal from './components/ProductDetailModal';
+import SourceFeed from './components/SourceFeed';
+
+const CACHE_KEY = 'heb_intel_cache_v2';
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<ProductMention[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalProduct[]>([]);
   const [globalTrends, setGlobalTrends] = useState<GlobalFoodTrend[]>([]);
+  const [groundingSources, setGroundingSources] = useState<GroundingSource[]>([]);
   const [status, setStatus] = useState<AnalysisStatus>(AnalysisStatus.IDLE);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductMention | null>(null);
-  const [logic, setLogic] = useState<AnalysisLogic>('simple');
+  const [logic, setLogic] = useState<AnalysisLogic>('breakout');
+  const [dateRange, setDateRange] = useState<DateRangePreset>('7d');
+  const [region, setRegion] = useState<Region>('all');
+  const [confidence, setConfidence] = useState<number>(0);
+  const isInitialMount = useRef(true);
+
+  // Load from Cache on Mount (Region-specific cache check)
+  useEffect(() => {
+    const cached = localStorage.getItem(`${CACHE_KEY}_${region}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setProducts(parsed.products);
+        setHistoricalData(parsed.historicalData);
+        setGlobalTrends(parsed.globalTrends);
+        setGroundingSources(parsed.groundingSources);
+        setConfidence(parsed.confidence);
+        setLastUpdated(parsed.lastUpdated);
+      } catch (e) {
+        console.error("Cache corrupted", e);
+      }
+    } else {
+      // Clear current data if no cache for this region and not currently fetching
+      if (status !== AnalysisStatus.SCRAPING) {
+        setProducts([]);
+        setHistoricalData([]);
+        setGlobalTrends([]);
+        setGroundingSources([]);
+      }
+    }
+  }, [region]);
 
   const fetchTrends = useCallback(async () => {
     try {
       setStatus(AnalysisStatus.SCRAPING);
-      const data = await analyzeBrandTrends(logic);
+      const data = await analyzeBrandTrends(logic, dateRange, region);
+      
+      const updateTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
       setProducts(data.products);
       setHistoricalData(data.historicalTop5);
       setGlobalTrends(data.globalTrends);
-      setLastUpdated(new Date().toLocaleString());
+      setGroundingSources(data.groundingSources);
+      setConfidence(data.scanConfidence);
+      setLastUpdated(updateTime);
+      
+      localStorage.setItem(`${CACHE_KEY}_${region}`, JSON.stringify({
+        products: data.products,
+        historicalData: data.historicalTop5,
+        globalTrends: data.globalTrends,
+        groundingSources: data.groundingSources,
+        confidence: data.scanConfidence,
+        lastUpdated: updateTime
+      }));
+
       setStatus(AnalysisStatus.COMPLETED);
     } catch (error) {
       console.error(error);
       setStatus(AnalysisStatus.ERROR);
     }
-  }, [logic]);
+  }, [logic, dateRange, region]);
 
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      fetchTrends(); // Initial fetch on mount
+      return;
+    }
     fetchTrends();
-  }, [fetchTrends]);
+  }, [logic, dateRange, region, fetchTrends]);
 
   const limitedProducts = products.filter(p => p.isLimitedRelease).slice(0, 5);
   const coreProducts = products.filter(p => !p.isLimitedRelease).slice(0, 6);
 
-  // High quality PNG logo for H-E-B
-  const HEB_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/H-E-B_logo.svg/1200px-H-E-B_logo.svg.png";
+  const logicInfo = {
+    breakout: { 
+      label: "Breakout", 
+      desc: "Early signals (24-48h window). Best for identifying viral sparks before they peak.",
+      profile: "Sensitivity: High • Noise: Moderate"
+    },
+    strict: { 
+      label: "Strict", 
+      desc: "Verified 10+ mention minimum. Cross-platform validation required for inclusion.",
+      profile: "Sensitivity: Moderate • Noise: Zero"
+    }
+  };
+
+  const regions: { id: Region; label: string }[] = [
+    { id: 'all', label: 'All Texas' },
+    { id: 'austin', label: 'Austin' },
+    { id: 'dallas', label: 'Dallas' },
+    { id: 'houston', label: 'Houston' },
+    { id: 'san_antonio', label: 'San Antonio' }
+  ];
+
+  const isRefreshing = status === AnalysisStatus.SCRAPING && (products.length > 0 || globalTrends.length > 0);
+  const isInitialLoading = status === AnalysisStatus.SCRAPING && products.length === 0 && globalTrends.length === 0;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
+      {isRefreshing && (
+        <div className="fixed top-0 left-0 right-0 h-1 z-[100] overflow-hidden bg-slate-100">
+          <div className="h-full bg-red-600 animate-[loading_1.5s_ease-in-out_infinite]" style={{ width: '40%' }}></div>
+        </div>
+      )}
+
       <ProductDetailModal 
         product={selectedProduct} 
         onClose={() => setSelectedProduct(null)} 
       />
 
-      {/* Header */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-4">
-              <img 
-                src={HEB_LOGO_URL} 
-                alt="H-E-B Logo" 
-                className="h-8 w-auto object-contain select-none transition-transform hover:scale-105"
-              />
+              <div className="flex flex-col select-none cursor-default">
+                <span className="text-2xl font-black italic text-red-600 tracking-tighter leading-none">H-E-B</span>
+              </div>
               <div className="h-6 w-[1px] bg-slate-200 hidden sm:block"></div>
-              <h1 className="text-lg font-bold text-slate-800 hidden sm:block tracking-tight">Brand Intelligence</h1>
+              
+              {/* Region Tabs */}
+              <div className="hidden lg:flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {regions.map((reg) => (
+                  <button
+                    key={reg.id}
+                    onClick={() => setRegion(reg.id)}
+                    className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                      region === reg.id 
+                        ? 'bg-red-600 text-white shadow-md' 
+                        : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {reg.label}
+                  </button>
+                ))}
+              </div>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
-                <button
-                  onClick={() => setLogic('simple')}
-                  className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${
-                    logic === 'simple' ? 'bg-white shadow-sm text-red-600' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Simple Volume
-                </button>
-                <button
-                  onClick={() => setLogic('momentum')}
-                  className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${
-                    logic === 'momentum' ? 'bg-white shadow-sm text-red-600' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Momentum
-                </button>
+            <div className="flex items-center gap-6">
+              <div className="hidden md:flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                {(['breakout', 'strict'] as AnalysisLogic[]).map((type) => (
+                  <div key={type} className="relative group/logic">
+                    <button
+                      onClick={() => setLogic(type)}
+                      className={`px-3 py-1 rounded-md transition-all relative z-10 ${
+                        logic === type ? 'bg-white shadow-sm text-red-600' : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      <div className="text-[10px] font-black uppercase tracking-widest">
+                        {logicInfo[type].label}
+                      </div>
+                    </button>
+
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 p-4 bg-slate-900 text-white rounded-xl shadow-2xl opacity-0 invisible group-hover/logic:opacity-100 group-hover/logic:visible transition-all z-[100] border border-slate-800">
+                      <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 italic">
+                        {logicInfo[type].label} Profile
+                      </div>
+                      <div className="text-[11px] font-medium leading-relaxed text-slate-300 mb-2">
+                        {logicInfo[type].desc}
+                      </div>
+                      <div className="pt-2 border-t border-slate-800 text-[9px] font-black uppercase text-slate-500 tracking-tighter">
+                        {logicInfo[type].profile}
+                      </div>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 rotate-45 -mb-1.5 border-l border-t border-slate-800"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
+
               <button 
                 onClick={fetchTrends}
                 disabled={status === AnalysisStatus.SCRAPING}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all transform active:scale-95 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all transform active:scale-95 ${
                   status === AnalysisStatus.SCRAPING 
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
-                  : 'bg-red-600 text-white hover:bg-red-700 shadow-xl shadow-red-200'
+                  ? 'bg-slate-100 text-slate-400' 
+                  : 'bg-red-600 text-white hover:bg-red-700 shadow-md'
                 }`}
               >
                 {status === AnalysisStatus.SCRAPING ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-300 border-t-slate-600" />
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-slate-300 border-t-slate-600" />
                 ) : <Icons.Refresh />}
-                {status === AnalysisStatus.SCRAPING ? 'Analyzing Nodes...' : 'Rescan Intelligence'}
+                {status === AnalysisStatus.SCRAPING ? 'Syncing...' : 'Rescan'}
               </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {status === AnalysisStatus.ERROR && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-3">
-            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
-            <p className="text-sm font-bold">Scraping node failure. Regional cluster sync retrying...</p>
-          </div>
-        )}
+      {/* Mobile Region Scroll */}
+      <div className="lg:hidden bg-white border-b border-slate-100 px-4 py-3 overflow-x-auto no-scrollbar flex gap-2">
+        {regions.map((reg) => (
+          <button
+            key={reg.id}
+            onClick={() => setRegion(reg.id)}
+            className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              region === reg.id 
+                ? 'bg-red-600 text-white shadow-sm' 
+                : 'bg-slate-50 text-slate-500 border border-slate-200'
+            }`}
+          >
+            {reg.label}
+          </button>
+        ))}
+      </div>
 
-        {status === AnalysisStatus.SCRAPING && products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[70vh]">
-            <div className="relative">
-              <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-20"></div>
-              <div className="relative bg-white p-12 rounded-full shadow-2xl border border-slate-100">
-                <div className="animate-spin rounded-full h-20 w-20 border-4 border-red-50 border-t-red-600"></div>
-              </div>
-            </div>
-            <h2 className="mt-12 text-3xl font-black text-slate-900 tracking-tight">Verifying Market Signal...</h2>
-            <p className="mt-4 text-slate-500 max-w-sm text-center font-semibold leading-relaxed">
-              Applying {logic.toUpperCase()} logic to r/HEB and #foodtok mention clusters to verify cross-platform accuracy...
-            </p>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isInitialLoading ? (
+          <div className="flex flex-col items-center justify-center h-[60vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-red-600 mb-6"></div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Syncing {regions.find(r => r.id === region)?.label} Intelligence...</h2>
+            <p className="mt-2 text-slate-400 text-sm font-semibold">Establishing node connections for localized analysis.</p>
           </div>
         ) : (
-          <>
+          <div className={`${isRefreshing ? 'opacity-70 pointer-events-none' : ''} transition-opacity duration-300`}>
             {products.length > 0 && <StatsCards products={products} />}
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
@@ -140,12 +249,42 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Analysis Controls Row */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <Icons.Search />
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lookback Window & Scope</h4>
+                  <p className="text-xs font-bold text-slate-700 mt-0.5">Focusing on {regions.find(r => r.id === region)?.label} signals</p>
+                </div>
+              </div>
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                {(['7d', '14d', '30d'] as DateRangePreset[]).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setDateRange(range)}
+                    className={`px-6 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
+                      dateRange === range 
+                      ? 'bg-white text-red-600 shadow-sm' 
+                      : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {range === '7d' ? '7 Days' : range === '14d' ? '14 Days' : '30 Days'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-12">
+              <SourceFeed sources={groundingSources} />
+
               <ProductTable 
                 products={limitedProducts} 
-                title="Viral Anomalies & Limited Releases"
-                subtitle="Top 5 Breakthrough Spikes (Limited Bakery, Seasonal Finds)"
-                badgeText="VIRAL VELOCITY"
+                title="Viral Breakouts"
+                subtitle={`High-velocity ${dateRange === '7d' ? '7-day' : dateRange === '14d' ? '14-day' : '30-day'} signals in ${regions.find(r => r.id === region)?.label}`}
+                badgeText="VELOCITY"
                 badgeColor="bg-amber-50 text-amber-600 border-amber-100"
                 displayMode="viral"
                 onProductClick={setSelectedProduct}
@@ -153,75 +292,38 @@ const App: React.FC = () => {
 
               <ProductTable 
                 products={coreProducts} 
-                title="Core Product & Evergreen Volume"
-                subtitle="Top 6 High-Engagement Staples (Tortillas, Pantry, Coffee)"
-                badgeText="STABLE VOLUME"
+                title="Stable Baseline"
+                subtitle="Consistent engagement volume"
+                badgeText="STABILITY"
                 badgeColor="bg-blue-50 text-blue-600 border-blue-100"
                 displayMode="core"
                 onProductClick={setSelectedProduct}
               />
             </div>
-
-            <div className="bg-slate-900 p-10 rounded-3xl shadow-2xl mt-12 flex flex-col lg:flex-row gap-12 items-center text-white">
-                <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="bg-red-600 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest italic">Node Scope v7.0</span>
-                        <h3 className="text-2xl font-black tracking-tight">Intelligence Synthesis Hub</h3>
-                    </div>
-                    <p className="text-slate-400 font-medium leading-relaxed">
-                        Currently tracking <strong>{logic.toUpperCase()}</strong> signals. Interactive sorting is enabled for social volume columns. 
-                        Champions are now strictly verified using absolute mention counts from regional food hubs and the global #foodtok graph.
-                    </p>
-                </div>
-                <div className="flex gap-4 w-full lg:w-auto">
-                   <div className="flex-1 lg:flex-none p-6 bg-slate-800 rounded-2xl border border-slate-700 flex flex-col items-center min-w-[160px]">
-                      <span className="text-[10px] font-black uppercase mb-2 text-slate-400 tracking-widest text-center">Sync Frequency</span>
-                      <span className="text-sm font-bold text-red-500">Real-Time Poll</span>
-                   </div>
-                   <div className="flex-1 lg:flex-none p-6 bg-slate-800 rounded-2xl border border-slate-700 flex flex-col items-center min-w-[160px]">
-                      <span className="text-[10px] font-black uppercase mb-2 text-slate-400 tracking-widest text-center">Data Type</span>
-                      <span className="text-sm font-bold text-blue-400">Pure Social</span>
-                   </div>
-                </div>
-            </div>
-          </>
+          </div>
         )}
       </main>
 
-      <footer className="bg-slate-900 text-slate-500 py-24 mt-20 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-16">
-            <div className="md:col-span-2">
-              <img 
-                src={HEB_LOGO_URL} 
-                alt="H-E-B Logo" 
-                className="h-10 w-auto mb-8 brightness-0 invert opacity-90"
-              />
-              <p className="text-sm font-medium leading-relaxed max-w-sm">
-                Advanced volume tracking dashboard. Cross-verifying regional Texas signal with global food industry velocity across Reddit and TikTok.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6">Social Discovery</h4>
-              <ul className="text-sm space-y-3 opacity-60 font-semibold">
-                <li>• Reddit r/HEB</li>
-                <li>• r/food Industry Watch</li>
-                <li>• #HEB TikTok Cluster</li>
-                <li>• #foodtok Trending Graphs</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6">Baseline Node</h4>
-              <p className="text-[11px] leading-relaxed opacity-40">
-                Data grounding provided by Gemini 3. Volume verification involves platform-specific count aggregation and double-pass mention integrity checks.
-              </p>
-            </div>
-          </div>
-          <div className="border-t border-slate-800 mt-20 pt-10 text-center text-[10px] uppercase tracking-[0.4em] font-black opacity-20">
-            &copy; {new Date().getFullYear()} H-E-B Intelligence Engine • TX Food Data
-          </div>
+      <footer className="bg-slate-900 py-12 mt-20">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+           <span className="text-2xl font-black italic text-red-600 tracking-tighter mb-2 block">H-E-B Intelligence</span>
+           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 opacity-40">Persistent Hub v10.0 • Region-Aware Node Sync</p>
         </div>
       </footer>
+      
+      <style>{`
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(250%); }
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 };

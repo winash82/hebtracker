@@ -46,10 +46,25 @@ const HistoricalLeaders: React.FC<HistoricalLeadersProps> = ({ data }) => {
                 </h4>
                 <div className="text-right ml-2">
                   <span className="block text-xs font-black text-slate-900">{item.totalMentionVolume.toLocaleString()}</span>
-                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Total SKU Mentions</span>
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-tighter">SKU Total</span>
                 </div>
               </div>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-1.5">{item.category}</p>
+              <div className="flex items-center gap-2 mb-1.5">
+                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{item.category}</p>
+                 <div className="flex gap-1">
+                    {item.sources?.slice(0, 2).map((src, i) => (
+                      <a 
+                        key={i} 
+                        href={src.uri} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[8px] font-black text-slate-300 hover:text-red-600 transition-colors"
+                      >
+                        [Node {i+1}]
+                      </a>
+                    ))}
+                 </div>
+              </div>
               <p className="text-[10px] text-slate-500 leading-tight line-clamp-2 bg-slate-50 p-2 rounded-lg border border-slate-100 italic">
                 "{item.rankReason}"
               </p>

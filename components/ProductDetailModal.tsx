@@ -11,6 +11,14 @@ interface ProductDetailModalProps {
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose }) => {
   if (!product) return null;
 
+  const calculateReliability = (p: ProductMention) => {
+    const base = p.confidenceScore || 70;
+    const sourceBonus = (p.sources?.length || 0) * 4;
+    return Math.min(100, base + sourceBonus);
+  };
+
+  const reliability = calculateReliability(product);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -31,6 +39,40 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
         </div>
         
         <div className="p-8">
+          {/* Reliability Header */}
+          <div className="mb-8 p-6 bg-slate-900 rounded-2xl text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+              <div>
+                <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2">Verification Intelligence</h4>
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl font-black">{reliability}%</span>
+                  <div>
+                    <p className="text-sm font-bold">Source Reliability Score</p>
+                    <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Weighted cross-platform signal</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Confidence</p>
+                  <p className="text-sm font-bold">{product.confidenceScore}%</p>
+                </div>
+                <div className="w-px h-8 bg-slate-800"></div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nodes</p>
+                  <p className="text-sm font-bold">{product.sources.length} Verified</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-1000 ${reliability > 85 ? 'bg-green-500' : 'bg-amber-500'}`}
+                style={{ width: `${reliability}%` }}
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="space-y-4">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Viral Context</h4>
@@ -51,11 +93,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   {product.sentiment}
                 </span>
               </div>
-              <div className="col-span-2 p-4 rounded-xl bg-slate-900 text-white">
+              <div className="col-span-2 p-4 rounded-xl bg-slate-50 border border-slate-100">
                 <div className="flex justify-between items-center">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trend Index</p>
                   <div className="flex items-center gap-1">
-                    <span className="text-xl font-black">{product.trendingScore.toFixed(1)}x</span>
+                    <span className="text-xl font-black text-slate-900">{product.trendingScore.toFixed(1)}x</span>
                     {product.trendingScore > 1.0 ? <Icons.TrendingUp /> : <Icons.TrendingDown />}
                   </div>
                 </div>

@@ -1,55 +1,67 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ProductMention, HistoricalProduct, GlobalFoodTrend } from "../types";
+import { ProductMention, HistoricalProduct, GlobalFoodTrend, GroundingSource, AnalysisLogic, DateRangePreset, Region } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
-export type AnalysisLogic = 'simple' | 'momentum';
-
-/**
- * Higher reasoning model 'gemini-3-pro-preview' is used here to ensure
- * better data extraction and consistency from web search grounding results.
- */
-export const analyzeBrandTrends = async (logic: AnalysisLogic = 'simple'): Promise<{ 
+export const analyzeBrandTrends = async (
+  logic: AnalysisLogic = 'breakout',
+  dateRange: DateRangePreset = '7d',
+  region: Region = 'all'
+): Promise<{ 
   products: ProductMention[], 
   historicalTop5: HistoricalProduct[],
   globalTrends: GlobalFoodTrend[],
-  sources: any[] 
+  groundingSources: GroundingSource[],
+  scanConfidence: number
 }> => {
-  const model = "gemini-3-pro-preview";
+  const model = "gemini-3-flash-preview";
   
-  const logicInstruction = logic === 'momentum' 
-    ? "MOMENTUM MODE: Prioritize products with the highest growth ratio (Weekly / 120D Avg). Highlight sudden breakouts with high velocity."
-    : "SIMPLE VOLUME MODE: Prioritize products with the highest absolute raw mention counts this week. Focus on the largest conversation clusters.";
+  const logicPrompts = {
+    breakout: "PRIORITY: High-velocity items (24-48h). Detect emerging sparks. Higher sensitivity to low-volume signals.",
+    strict: "PRIORITY: Verified volume (>10 mentions). Must appear on multiple platforms. Extremely high noise filtering."
+  };
+
+  const rangeLabel = dateRange === '7d' ? 'Last 7 Days' : dateRange === '14d' ? 'Last 14 Days' : 'Last 30 Days';
+  
+  const regionNames: Record<Region, string> = {
+    all: "Statewide (Texas)",
+    austin: "Austin, TX",
+    dallas: "Dallas, TX",
+    houston: "Houston, TX",
+    san_antonio: "San Antonio, TX"
+  };
+
+  const regionSubreddits: Record<Region, string> = {
+    all: "r/Texas, r/Austin, r/Houston, r/Dallas, r/SanAntonio",
+    austin: "r/Austin",
+    dallas: "r/Dallas",
+    houston: "r/Houston",
+    san_antonio: "r/SanAntonio"
+  };
 
   const prompt = `
-    DATA EXTRACTION PROTOCOL:
-    You are an expert market analyst scraping and analyzing H-E-B (H.E. Butt Grocery Company) social media presence.
+    Analyze H-E-B performance vs. broader Texas Food Intelligence.
+    GEOGRAPHIC FOCUS: ${regionNames[region]}.
+    TIME WINDOW: ${rangeLabel}.
+    Profile: ${logicPrompts[logic]}
     
-    SEARCH TASKS:
-    1. Search Reddit (r/HEB, r/Texas, r/AustinFood, r/SanAntonioFood) for H-E-B product mentions from the LAST 7 DAYS.
-    2. Search TikTok (#HEB, #HEBHaul, #HEBFinds) for viral videos and comment volumes from the LAST 7 DAYS.
-    3. Estimate 120-day historical baseline averages by analyzing historical post frequency for these SKUs.
-
-    STRICT DATA RULES:
-    - 'mentionsThisWeek': Must be a calculated integer based on actual post/comment volume found in search grounding.
-    - 'average120Day': Must be a realistic baseline calculated as (Total 120-day mentions / 17.14 weeks).
-    - 'trendingScore': STRICTLY (mentionsThisWeek / average120Day).
-    - 'sources': For EACH product, you MUST provide at least 2 real, specific URLs (Reddit threads, TikTok videos, or forum posts) where this product was discussed in the last 7 days. These MUST be URLs found in your search grounding.
-
-    ${logicInstruction}
-
-    TASK 1: PRODUCT SEGMENTATION
-    - VIRAL ANOMALIES (isLimitedRelease: true): Exactly 5 breakthrough items.
-    - CORE PRODUCTS (isLimitedRelease: false): Exactly 6 high-volume staples.
-
-    TASK 2: 120-DAY CHAMPIONS
-    - Identify the top 5 SKUs with the highest TOTAL volume over the last 120 days.
-
-    TASK 3: GLOBAL FOOD TRENDS
-    - Identify 5 non-HEB specific trends dominating #foodtok and r/food to provide industry context.
-
-    Return the data in the specified JSON format. Cross-verify your numbers and sources against the search results to ensure they are proportional and realistic.
+    PRIMARY SOURCES TO SCAN: 
+    - Reddit: ${regionSubreddits[region]}, r/HEB, r/BBQ, r/Smoking
+    - TikTok: #TexasFood, #TexasRecipes, #${region.replace('_', '')}Food, #TXBBQ
+    - News: Texas Monthly Food, Eater ${region === 'all' ? 'Texas' : region.charAt(0).toUpperCase() + region.slice(1)}
+    
+    TASKS:
+    1. H-E-B INTERNAL (Localized to ${regionNames[region]}): Identify 5 Viral Breakouts and 6 Core Staples currently being discussed within the context of this region. Include source URLs.
+    2. LOCAL FOOD PULSE (NON-H-E-B):
+       - Find 5 trending food items/concepts that ARE NOT H-E-B products but are specifically hot in ${regionNames[region]}.
+       - Focus on: Specific Recipes, Local Ingredients, or Competitor Brands (e.g., Central Market, local bakeries).
+       - Classify trendType as 'Brand', 'Recipe', 'Ingredient', or 'Culture'.
+       - Assess 'momentum' as 'Rising', 'Peak', or 'Fading'.
+       - Include direct source URLs for evidence.
+    3. HISTORICAL: 5 Long-term H-E-B champions (120d). Include source URLs for verification.
+    
+    Return JSON only.
   `;
 
   try {
@@ -80,6 +92,7 @@ export const analyzeBrandTrends = async (logic: AnalysisLogic = 'simple'): Promi
                   sentiment: { type: Type.STRING },
                   topPlatform: { type: Type.STRING },
                   lastMentioned: { type: Type.STRING },
+                  confidenceScore: { type: Type.NUMBER },
                   sources: {
                     type: Type.ARRAY,
                     items: {
@@ -91,8 +104,7 @@ export const analyzeBrandTrends = async (logic: AnalysisLogic = 'simple'): Promi
                       required: ["title", "uri"]
                     }
                   }
-                },
-                required: ["id", "name", "category", "description", "isLimitedRelease", "whyTrending", "mentionsThisWeek", "average120Day", "trendingScore", "sentiment", "topPlatform", "sources"]
+                }
               }
             },
             historicalTop5: {
@@ -103,9 +115,18 @@ export const analyzeBrandTrends = async (logic: AnalysisLogic = 'simple'): Promi
                         name: { type: Type.STRING },
                         totalMentionVolume: { type: Type.NUMBER },
                         category: { type: Type.STRING },
-                        rankReason: { type: Type.STRING }
-                    },
-                    required: ["name", "totalMentionVolume", "category", "rankReason"]
+                        rankReason: { type: Type.STRING },
+                        sources: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              title: { type: Type.STRING },
+                              uri: { type: Type.STRING }
+                            }
+                          }
+                        }
+                    }
                 }
             },
             globalTrends: {
@@ -116,25 +137,44 @@ export const analyzeBrandTrends = async (logic: AnalysisLogic = 'simple'): Promi
                   name: { type: Type.STRING },
                   platform: { type: Type.STRING },
                   description: { type: Type.STRING },
-                  volumeLabel: { type: Type.STRING }
-                },
-                required: ["name", "platform", "description", "volumeLabel"]
+                  volumeLabel: { type: Type.STRING },
+                  trendType: { type: Type.STRING },
+                  momentum: { type: Type.STRING },
+                  sources: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        title: { type: Type.STRING },
+                        uri: { type: Type.STRING }
+                      }
+                    }
+                  }
+                }
               }
-            }
-          },
-          required: ["products", "historicalTop5", "globalTrends"]
+            },
+            scanConfidence: { type: Type.NUMBER }
+          }
         }
       }
     });
 
     const parsed = JSON.parse(response.text);
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const rawGrounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    
+    const groundingSources: GroundingSource[] = rawGrounding
+      .filter((chunk: any) => chunk.web)
+      .map((chunk: any) => ({
+        title: chunk.web.title || 'Source',
+        uri: chunk.web.uri
+      }));
 
     return { 
       products: parsed.products || [], 
       historicalTop5: parsed.historicalTop5 || [],
       globalTrends: parsed.globalTrends || [],
-      sources: groundingChunks 
+      groundingSources,
+      scanConfidence: parsed.scanConfidence || 85
     };
   } catch (error) {
     console.error("Gemini Analysis Error:", error);

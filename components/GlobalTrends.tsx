@@ -7,14 +7,29 @@ interface GlobalTrendsProps {
 }
 
 const GlobalTrends: React.FC<GlobalTrendsProps> = ({ trends }) => {
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'Recipe': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'Ingredient': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'Brand': return 'bg-blue-100 text-blue-700 border-blue-200';
+      default: return 'bg-slate-100 text-slate-700 border-slate-200';
+    }
+  };
+
+  const getMomentumIcon = (momentum: string) => {
+    if (momentum === 'Rising') return '↗';
+    if (momentum === 'Peak') return '●';
+    return '↘';
+  };
+
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full overflow-visible relative">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="font-black text-slate-900">Global Food Velocity</h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">r/food & #foodtok Leaders</p>
+          <h3 className="font-black text-slate-900">Texas Intelligence Pulse</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Cross-Platform Local Insights</p>
         </div>
-        <div className="bg-blue-600 text-white text-[9px] font-black px-2 py-1 rounded tracking-tighter uppercase">Industry Watch</div>
+        <div className="bg-blue-600 text-white text-[9px] font-black px-2 py-1 rounded tracking-tighter uppercase">Cultural Signal</div>
       </div>
       <div className="space-y-5 flex-1">
         {trends.map((trend, idx) => (
@@ -22,15 +37,21 @@ const GlobalTrends: React.FC<GlobalTrendsProps> = ({ trends }) => {
             
             {/* Tooltip */}
             <div className="absolute right-full mr-4 top-0 z-[60] pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:translate-x-2">
-                <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border border-slate-800 whitespace-nowrap min-w-[180px]">
-                    <div className="text-[9px] font-black uppercase text-blue-400 mb-1 tracking-widest">Industry Pulse</div>
+                <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border border-slate-800 whitespace-nowrap min-w-[200px]">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[9px] font-black uppercase text-blue-400 tracking-widest">{trend.trendType} Detect</span>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                        trend.momentum === 'Rising' ? 'bg-green-600' : trend.momentum === 'Peak' ? 'bg-amber-600' : 'bg-slate-600'
+                      }`}>
+                        {trend.momentum}
+                      </span>
+                    </div>
                     <div className="text-xs font-black">{trend.name}</div>
-                    <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-2 font-bold leading-tight max-w-[160px] whitespace-normal">
-                        Source: {trend.platform === 'TikTok' ? '#foodtok' : 'r/food'}<br/>
-                        {trend.description}
+                    <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-2 font-bold leading-tight max-w-[180px] whitespace-normal">
+                        Detected in: {trend.platform === 'TikTok' ? '#TexasRecipes' : 'r/Texas Cities'}<br/>
+                        <span className="italic text-slate-300 mt-1 block">"{trend.description}"</span>
                     </div>
                 </div>
-                {/* Arrow */}
                 <div className="w-3 h-3 bg-slate-900 rotate-45 absolute top-4 -right-1.5 border-r border-t border-slate-800"></div>
             </div>
 
@@ -43,21 +64,41 @@ const GlobalTrends: React.FC<GlobalTrendsProps> = ({ trends }) => {
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515 8.485.452.453 1.185.453 1.638 0 .452-.453.452-1.185 0-1.638C3.87 17.564 3 14.887 3 12c0-4.963 4.037-9 9-9s9 4.037 9 9c0 2.887-.87 5.564-2.153 6.847-.452.453-.452 1.185 0 1.638.453.453 1.186.453 1.638 0C22.657 18.314 24 15.314 24 12c0-6.627-5.373-12-12-12zM12 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-1.5 5v7h3v-7h-3z"/></svg>
               )}
             </div>
-            <div className="min-w-0">
-              <div className="flex justify-between items-baseline mb-0.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex justify-between items-baseline mb-1">
                 <h4 className="text-xs font-black text-slate-800 truncate pr-2 group-hover:text-blue-600 transition-colors">{trend.name}</h4>
-                <span className="text-[10px] font-black text-slate-400 shrink-0">{trend.volumeLabel}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase tracking-tighter ${getTypeColor(trend.trendType)}`}>
+                    {trend.trendType}
+                  </span>
+                  <span className={`text-[10px] font-black ${trend.momentum === 'Rising' ? 'text-green-500' : 'text-slate-400'}`}>
+                    {getMomentumIcon(trend.momentum)}
+                  </span>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-500 leading-tight line-clamp-2">
+              <p className="text-[10px] text-slate-500 leading-tight line-clamp-2 mb-2">
                 {trend.description}
               </p>
+              <div className="flex gap-2">
+                {trend.sources?.slice(0, 2).map((src, i) => (
+                  <a 
+                    key={i} 
+                    href={src.uri} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[8px] font-black uppercase text-blue-500 hover:text-blue-700 underline tracking-tighter"
+                  >
+                    View Source ↗
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         ))}
       </div>
       <div className="mt-8 pt-6 border-t border-slate-100">
-        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center leading-relaxed">
-          Aggregated from 14M+ active daily discussions
+        <p className="text-[8px] text-slate-400 font-black uppercase tracking-[0.2em] text-center leading-relaxed">
+          Sourced via r/Texas Local Subs & #TXRecipes
         </p>
       </div>
     </div>

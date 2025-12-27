@@ -14,6 +14,12 @@ export interface ProductMention {
   lastMentioned: string;
   sources: Array<{ title: string; uri: string }>;
   whyTrending: string;
+  confidenceScore: number;
+}
+
+export interface GroundingSource {
+  title: string;
+  uri: string;
 }
 
 export interface HistoricalProduct {
@@ -21,20 +27,17 @@ export interface HistoricalProduct {
   totalMentionVolume: number;
   category: string;
   rankReason: string;
+  sources: Array<{ title: string; uri: string }>;
 }
 
 export interface GlobalFoodTrend {
   name: string;
-  platform: 'Reddit' | 'TikTok';
+  platform: 'Reddit' | 'TikTok' | 'Search';
   description: string;
   volumeLabel: string;
-}
-
-export interface BrandStats {
-  totalMentions: number;
-  avgSentiment: number;
-  topTrendingProduct: string;
-  platformDistribution: { name: string; value: number }[];
+  trendType: 'Brand' | 'Recipe' | 'Ingredient' | 'Culture';
+  momentum: 'Rising' | 'Peak' | 'Fading';
+  sources: Array<{ title: string; uri: string }>;
 }
 
 export enum AnalysisStatus {
@@ -44,3 +47,9 @@ export enum AnalysisStatus {
   COMPLETED = 'COMPLETED',
   ERROR = 'ERROR'
 }
+
+export type AnalysisLogic = 'breakout' | 'strict';
+
+export type DateRangePreset = '7d' | '14d' | '30d';
+
+export type Region = 'all' | 'austin' | 'dallas' | 'houston' | 'san_antonio';
