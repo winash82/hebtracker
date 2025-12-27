@@ -1,0 +1,5 @@
+{
+  "name": "H-E-B Brand Intelligence Tracker",
+  "description": "An advanced brand monitoring dashboard that uses Gemini AI to track H-E-B product mentions, sentiment, and trending scores across Reddit, TikTok, and forums.",
+  "requestFramePermissions": []
+}
