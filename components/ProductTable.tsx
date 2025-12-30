@@ -43,7 +43,7 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, title, subtitle, 
   if (products.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible mb-8">
       <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white">
         <div>
           <h3 className="font-black text-slate-900 text-lg">{title}</h3>
@@ -61,9 +61,7 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, title, subtitle, 
             <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-[0.1em]">
               <th className="px-8 py-4">Product Identity</th>
               <th className="px-8 py-4">Social Context & Sources</th>
-              <th 
-                className="px-8 py-4 text-center cursor-pointer hover:text-red-600 transition-colors group/sort"
-              >
+              <th className="px-8 py-4 text-center cursor-pointer hover:text-red-600 transition-colors group/sort">
                 <div className="flex items-center justify-center gap-1.5 relative">
                   <div 
                     className="flex items-center gap-1"
@@ -86,7 +84,7 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, title, subtitle, 
               return (
                 <tr 
                   key={product.id} 
-                  className="hover:bg-slate-50 transition-all group cursor-pointer"
+                  className="hover:bg-slate-50 transition-all group cursor-pointer overflow-visible"
                   onClick={() => onProductClick?.(product)}
                 >
                   <td className="px-8 py-5 min-w-[220px] relative">
@@ -148,9 +146,9 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, title, subtitle, 
                       {product.sentiment}
                     </span>
                   </td>
-                  <td className="px-8 py-5 text-right">
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex items-center gap-2 group/rel relative">
+                  <td className="px-8 py-5 text-right relative overflow-visible">
+                    <div className="flex flex-col items-end gap-2 group/rel">
+                      <div className="flex items-center gap-2 relative">
                         <div className="text-right">
                           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Reliability</p>
                           <p className={`text-sm font-black ${reliability > 85 ? 'text-green-600' : reliability > 70 ? 'text-amber-600' : 'text-slate-600'}`}>
@@ -164,24 +162,25 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, title, subtitle, 
                           />
                         </div>
 
-                        {/* Reliability Tooltip */}
-                        <div className="absolute right-0 bottom-full mb-3 w-48 p-3 bg-slate-900 text-white rounded-xl shadow-2xl opacity-0 invisible group-hover/rel:opacity-100 group-hover/rel:visible transition-all z-[80] text-left">
-                          <p className="text-[10px] font-black uppercase text-blue-400 mb-1">Score Composition</p>
-                          <div className="text-[10px] font-medium space-y-1">
+                        {/* Standardized Table Tooltip: Centered Above Parent */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 p-4 bg-slate-900 text-white rounded-xl shadow-2xl opacity-0 invisible group-hover/rel:opacity-100 group-hover/rel:visible transition-all z-[150] text-left pointer-events-none transform group-hover/rel:-translate-y-1">
+                          <p className="text-[10px] font-black uppercase text-blue-400 mb-2 tracking-widest">Confidence Metrics</p>
+                          <div className="text-[10px] font-medium space-y-1.5">
                             <div className="flex justify-between">
-                              <span className="opacity-60">Confidence Base:</span>
+                              <span className="opacity-60">Base Confidence:</span>
                               <span className="font-bold">{product.confidenceScore}%</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="opacity-60">Source Density:</span>
+                              <span className="opacity-60">Source Evidence:</span>
                               <span className="font-bold">+{product.sources.length * 4}%</span>
                             </div>
-                            <div className="border-t border-slate-800 pt-1 mt-1 flex justify-between font-black text-white">
-                              <span>Total Score:</span>
+                            <div className="border-t border-slate-800 pt-1.5 mt-1.5 flex justify-between font-black text-white">
+                              <span>Aggregate:</span>
                               <span>{reliability}%</span>
                             </div>
                           </div>
-                          <div className="absolute top-full right-4 w-2 h-2 bg-slate-900 rotate-45 -mt-1"></div>
+                          {/* Arrow */}
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-1.5 border-r border-b border-slate-800"></div>
                         </div>
                       </div>
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">{product.topPlatform} Origin</span>

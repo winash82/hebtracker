@@ -19,17 +19,17 @@ const HistoricalLeaders: React.FC<HistoricalLeadersProps> = ({ data }) => {
       <div className="space-y-6 flex-1">
         {data.slice(0, 5).map((item, idx) => (
           <div key={idx} className="relative pl-12 group cursor-default">
-            {/* Tooltip */}
-            <div className="absolute left-full ml-4 top-0 z-[60] pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:-translate-x-2">
-                <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border border-slate-800 whitespace-nowrap min-w-[180px]">
+            {/* Standardized Tooltip: Centered Above */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[100] pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:-translate-y-1">
+                <div className="bg-slate-900 text-white p-4 rounded-xl shadow-2xl border border-slate-800 w-64 text-left whitespace-normal">
                     <div className="text-[9px] font-black uppercase text-red-500 mb-1 tracking-widest">Brand Equity Rank</div>
-                    <div className="text-xs font-black">{item.name}</div>
-                    <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-2 font-bold leading-tight max-w-[160px] whitespace-normal">
-                        {item.rankReason}
+                    <div className="text-sm font-black mb-1">{item.name}</div>
+                    <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-2 font-bold leading-relaxed italic">
+                        "{item.rankReason}"
                     </div>
                 </div>
-                {/* Arrow */}
-                <div className="w-3 h-3 bg-slate-900 rotate-45 absolute top-4 -left-1.5 border-l border-b border-slate-800"></div>
+                {/* Tooltip Arrow */}
+                <div className="w-3 h-3 bg-slate-900 rotate-45 absolute top-full left-1/2 -translate-x-1/2 -mt-1.5 border-r border-b border-slate-800"></div>
             </div>
 
             <div className={`absolute left-0 top-0 w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg shadow-sm border ${

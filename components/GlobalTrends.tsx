@@ -35,9 +35,9 @@ const GlobalTrends: React.FC<GlobalTrendsProps> = ({ trends }) => {
         {trends.map((trend, idx) => (
           <div key={idx} className="flex gap-4 items-start p-3 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-100 group cursor-default relative">
             
-            {/* Tooltip */}
-            <div className="absolute right-full mr-4 top-0 z-[60] pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:translate-x-2">
-                <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl border border-slate-800 whitespace-nowrap min-w-[200px]">
+            {/* Standardized Tooltip: Centered Above */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[100] pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:-translate-y-1">
+                <div className="bg-slate-900 text-white p-4 rounded-xl shadow-2xl border border-slate-800 w-64 text-left whitespace-normal">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-[9px] font-black uppercase text-blue-400 tracking-widest">{trend.trendType} Detect</span>
                       <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
@@ -46,13 +46,14 @@ const GlobalTrends: React.FC<GlobalTrendsProps> = ({ trends }) => {
                         {trend.momentum}
                       </span>
                     </div>
-                    <div className="text-xs font-black">{trend.name}</div>
-                    <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-2 font-bold leading-tight max-w-[180px] whitespace-normal">
+                    <div className="text-sm font-black mb-1">{trend.name}</div>
+                    <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-2 font-bold leading-relaxed">
                         Detected in: {trend.platform === 'TikTok' ? '#TexasRecipes' : 'r/Texas Cities'}<br/>
                         <span className="italic text-slate-300 mt-1 block">"{trend.description}"</span>
                     </div>
                 </div>
-                <div className="w-3 h-3 bg-slate-900 rotate-45 absolute top-4 -right-1.5 border-r border-t border-slate-800"></div>
+                {/* Tooltip Arrow */}
+                <div className="w-3 h-3 bg-slate-900 rotate-45 absolute top-full left-1/2 -translate-x-1/2 -mt-1.5 border-r border-b border-slate-800"></div>
             </div>
 
             <div className={`mt-1 h-8 w-8 shrink-0 rounded-lg flex items-center justify-center ${

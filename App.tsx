@@ -161,7 +161,7 @@ const App: React.FC = () => {
             
             <div className="flex items-center gap-6">
               <div className="hidden md:flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-                {(['breakout', 'strict'] as AnalysisLogic[]).map((type) => (
+                {(['breakout', 'strict'] as AnalysisLogic[]).map((type, idx) => (
                   <div key={type} className="relative group/logic">
                     <button
                       onClick={() => setLogic(type)}
@@ -174,7 +174,8 @@ const App: React.FC = () => {
                       </div>
                     </button>
 
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 p-4 bg-slate-900 text-white rounded-xl shadow-2xl opacity-0 invisible group-hover/logic:opacity-100 group-hover/logic:visible transition-all z-[100] border border-slate-800">
+                    {/* Aligned Tooltip: Anchored to avoid screen edge clipping */}
+                    <div className={`absolute top-full ${idx === 0 ? 'left-0' : 'right-0'} mt-3 w-64 p-4 bg-slate-900 text-white rounded-xl shadow-2xl opacity-0 invisible group-hover/logic:opacity-100 group-hover/logic:visible transition-all z-[100] border border-slate-800 pointer-events-none transform group-hover/logic:translate-y-1`}>
                       <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 italic">
                         {logicInfo[type].label} Profile
                       </div>
@@ -184,7 +185,8 @@ const App: React.FC = () => {
                       <div className="pt-2 border-t border-slate-800 text-[9px] font-black uppercase text-slate-500 tracking-tighter">
                         {logicInfo[type].profile}
                       </div>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 rotate-45 -mb-1.5 border-l border-t border-slate-800"></div>
+                      {/* Tooltip Arrow aligned with button */}
+                      <div className={`absolute bottom-full ${idx === 0 ? 'left-6' : 'right-6'} w-3 h-3 bg-slate-900 rotate-45 -mb-1.5 border-l border-t border-slate-800`}></div>
                     </div>
                   </div>
                 ))}
@@ -234,17 +236,17 @@ const App: React.FC = () => {
             <p className="mt-2 text-slate-400 text-sm font-semibold">Establishing node connections for localized analysis.</p>
           </div>
         ) : (
-          <div className={`${isRefreshing ? 'opacity-70 pointer-events-none' : ''} transition-opacity duration-300`}>
+          <div className={`${isRefreshing ? 'opacity-70 pointer-events-none' : ''} transition-opacity duration-300 overflow-visible`}>
             {products.length > 0 && <StatsCards products={products} />}
             
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-              <div className="lg:col-span-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8 overflow-visible">
+              <div className="lg:col-span-6 overflow-visible">
                 <TrendingChart products={products} onProductClick={setSelectedProduct} />
               </div>
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-3 overflow-visible">
                 <HistoricalLeaders data={historicalData} />
               </div>
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-3 overflow-visible">
                 <GlobalTrends trends={globalTrends} />
               </div>
             </div>
@@ -277,7 +279,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-12">
+            <div className="space-y-12 overflow-visible">
               <SourceFeed sources={groundingSources} />
 
               <ProductTable 
