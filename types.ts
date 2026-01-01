@@ -15,6 +15,8 @@ export interface ProductMention {
   sources: Array<{ title: string; uri: string }>;
   whyTrending: string;
   confidenceScore: number;
+  evidenceCount: number;
+  evidenceSummary: string;
 }
 
 export interface GroundingSource {
