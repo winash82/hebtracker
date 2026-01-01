@@ -1,4 +1,6 @@
 
+export type RetailerBrand = 'HEB' | 'Costco' | 'Trader Joes' | 'Walmart';
+
 export interface ProductMention {
   id: string;
   name: string;
@@ -17,6 +19,7 @@ export interface ProductMention {
   confidenceScore: number;
   evidenceCount: number;
   evidenceSummary: string;
+  retailer?: RetailerBrand;
 }
 
 export interface GroundingSource {
